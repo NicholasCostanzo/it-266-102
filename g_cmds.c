@@ -867,7 +867,8 @@ void Cmd_PlayerList_f(edict_t *ent)
 			(level.framenum - e2->client->resp.enterframe) / 600,
 			((level.framenum - e2->client->resp.enterframe) % 600)/10,
 			e2->client->ping,
-			e2->client->resp.score,
+			//e2->client->resp.score,
+			e2->client->resp.hogcount,
 			e2->client->pers.netname,
 			e2->client->resp.spectator ? " (spectator)" : "");
 		if (strlen(text) + strlen(st) > sizeof(text) - 50) {

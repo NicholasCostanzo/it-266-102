@@ -239,6 +239,9 @@ typedef struct gitem_s
 	int			tag;
 
 	char		*precaches;		// string of all models, sounds, and images this item will use
+
+
+	int			hogcount;
 } gitem_t;
 
 
@@ -852,7 +855,12 @@ typedef struct
 	client_persistant_t	coop_respawn;	// what to set client->pers to on a respawn
 	int			enterframe;			// level.framenum the client entered the game
 	int			score;				// frags, etc
+	int			hogcount;			//I MADE THIS (test)
 	vec3_t		cmd_angles;			// angles sent over in the last command
+	qboolean	holdhog;			//I MADE THIS (hold your items when you die)
+	qboolean	bigthief;			//I MADE THIS (steal 3 times as many items)
+	qboolean	quickthief;			//I MADE THIS (more weapons steal items)
+	qboolean	isblue;				//I MADE THIS (make people blue when they respawn)
 
 	qboolean	spectator;			// client is a spectator
 } client_respawn_t;
@@ -1038,6 +1046,8 @@ struct edict_s
 	int			gib_health;
 	int			deadflag;
 	qboolean	show_hostile;
+	int			hogcount; //I MADE THIS (pretty much only for having a scalable drop amount for weapons)
+
 
 	float		powerarmor_time;
 

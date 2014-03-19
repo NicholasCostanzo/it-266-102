@@ -140,7 +140,7 @@ void SetRespawn (edict_t *ent, float delay)
 qboolean Pickup_Powerup (edict_t *ent, edict_t *other)
 {
 	int		quantity;
-
+	
 	quantity = other->client->pers.inventory[ITEM_INDEX(ent->item)];
 	if ((skill->value == 1 && quantity >= 2) || (skill->value >= 2 && quantity >= 1))
 		return false;
@@ -162,6 +162,7 @@ qboolean Pickup_Powerup (edict_t *ent, edict_t *other)
 		}
 	}
 
+	other->client->resp.hogcount +=1;
 	return true;
 }
 
@@ -177,6 +178,8 @@ void Drop_General (edict_t *ent, gitem_t *item)
 
 qboolean Pickup_Adrenaline (edict_t *ent, edict_t *other)
 {
+	other->client->resp.hogcount +=1;
+
 	if (!deathmatch->value)
 		other->max_health += 1;
 
@@ -191,6 +194,8 @@ qboolean Pickup_Adrenaline (edict_t *ent, edict_t *other)
 
 qboolean Pickup_AncientHead (edict_t *ent, edict_t *other)
 {
+	other->client->resp.hogcount +=1;
+
 	other->max_health += 2;
 
 	if (!(ent->spawnflags & DROPPED_ITEM) && (deathmatch->value))
@@ -218,6 +223,7 @@ qboolean Pickup_Bandolier (edict_t *ent, edict_t *other)
 	{
 		index = ITEM_INDEX(item);
 		other->client->pers.inventory[index] += item->quantity;
+		other->client->resp.hogcount +=1;
 		if (other->client->pers.inventory[index] > other->client->pers.max_bullets)
 			other->client->pers.inventory[index] = other->client->pers.max_bullets;
 	}
@@ -227,6 +233,7 @@ qboolean Pickup_Bandolier (edict_t *ent, edict_t *other)
 	{
 		index = ITEM_INDEX(item);
 		other->client->pers.inventory[index] += item->quantity;
+		other->client->resp.hogcount +=1;
 		if (other->client->pers.inventory[index] > other->client->pers.max_shells)
 			other->client->pers.inventory[index] = other->client->pers.max_shells;
 	}
@@ -241,7 +248,7 @@ qboolean Pickup_Pack (edict_t *ent, edict_t *other)
 {
 	gitem_t	*item;
 	int		index;
-
+	
 	if (other->client->pers.max_bullets < 300)
 		other->client->pers.max_bullets = 300;
 	if (other->client->pers.max_shells < 200)
@@ -260,6 +267,7 @@ qboolean Pickup_Pack (edict_t *ent, edict_t *other)
 	{
 		index = ITEM_INDEX(item);
 		other->client->pers.inventory[index] += item->quantity;
+		other->client->resp.hogcount +=1;
 		if (other->client->pers.inventory[index] > other->client->pers.max_bullets)
 			other->client->pers.inventory[index] = other->client->pers.max_bullets;
 	}
@@ -269,6 +277,7 @@ qboolean Pickup_Pack (edict_t *ent, edict_t *other)
 	{
 		index = ITEM_INDEX(item);
 		other->client->pers.inventory[index] += item->quantity;
+		other->client->resp.hogcount +=1;
 		if (other->client->pers.inventory[index] > other->client->pers.max_shells)
 			other->client->pers.inventory[index] = other->client->pers.max_shells;
 	}
@@ -278,6 +287,7 @@ qboolean Pickup_Pack (edict_t *ent, edict_t *other)
 	{
 		index = ITEM_INDEX(item);
 		other->client->pers.inventory[index] += item->quantity;
+		other->client->resp.hogcount +=1;
 		if (other->client->pers.inventory[index] > other->client->pers.max_cells)
 			other->client->pers.inventory[index] = other->client->pers.max_cells;
 	}
@@ -287,6 +297,7 @@ qboolean Pickup_Pack (edict_t *ent, edict_t *other)
 	{
 		index = ITEM_INDEX(item);
 		other->client->pers.inventory[index] += item->quantity;
+		other->client->resp.hogcount +=1;
 		if (other->client->pers.inventory[index] > other->client->pers.max_grenades)
 			other->client->pers.inventory[index] = other->client->pers.max_grenades;
 	}
@@ -296,6 +307,8 @@ qboolean Pickup_Pack (edict_t *ent, edict_t *other)
 	{
 		index = ITEM_INDEX(item);
 		other->client->pers.inventory[index] += item->quantity;
+		other->client->resp.hogcount +=1;
+		other->client->resp.quickthief = true; //I MADE THIS (enable quick thief mode when you find rocket ammo)
 		if (other->client->pers.inventory[index] > other->client->pers.max_rockets)
 			other->client->pers.inventory[index] = other->client->pers.max_rockets;
 	}
@@ -305,6 +318,7 @@ qboolean Pickup_Pack (edict_t *ent, edict_t *other)
 	{
 		index = ITEM_INDEX(item);
 		other->client->pers.inventory[index] += item->quantity;
+		other->client->resp.hogcount +=1;
 		if (other->client->pers.inventory[index] > other->client->pers.max_slugs)
 			other->client->pers.inventory[index] = other->client->pers.max_slugs;
 	}
@@ -312,6 +326,8 @@ qboolean Pickup_Pack (edict_t *ent, edict_t *other)
 	if (!(ent->spawnflags & DROPPED_ITEM) && (deathmatch->value))
 		SetRespawn (ent, ent->item->quantity);
 
+
+	other->client->resp.quickthief = true;
 	return true;
 }
 
@@ -402,6 +418,8 @@ void	Use_Silencer (edict_t *ent, gitem_t *item)
 
 qboolean Pickup_Key (edict_t *ent, edict_t *other)
 {
+	other->client->resp.hogcount +=1;
+
 	if (coop->value)
 	{
 		if (strcmp(ent->classname, "key_power_cube") == 0)
@@ -486,6 +504,8 @@ qboolean Pickup_Ammo (edict_t *ent, edict_t *other)
 			other->client->newweapon = ent->item;
 	}
 
+	other->client->resp.hogcount +=1;
+
 	if (!(ent->spawnflags & (DROPPED_ITEM | DROPPED_PLAYER_ITEM)) && (deathmatch->value))
 		SetRespawn (ent, 30);
 	return true;
@@ -537,10 +557,12 @@ void MegaHealth_think (edict_t *self)
 qboolean Pickup_Health (edict_t *ent, edict_t *other)
 {
 	if (!(ent->style & HEALTH_IGNORE_MAX))
-		if (other->health >= other->max_health)
+		if (other->health >= other->max_health){
 			return false;
+		}
 
 	other->health += ent->count;
+	other->client->resp.hogcount +=1;
 
 	if (!(ent->style & HEALTH_IGNORE_MAX))
 	{
@@ -658,9 +680,18 @@ qboolean Pickup_Armor (edict_t *ent, edict_t *other)
 		}
 	}
 
-	if (!(ent->spawnflags & DROPPED_ITEM) && (deathmatch->value))
-		SetRespawn (ent, 20);
+	if (ent->item->tag == ARMOR_JACKET){
+		other->client->resp.holdhog = true;	//ARMOR JACKET WILL LET YOU KEEP YOUR ITEMS IF YOU DIE
+	}
+	if (ent->item->tag == ARMOR_COMBAT){
+		other->client->resp.bigthief = true;
+	}
 
+	other->client->resp.hogcount +=1;
+	if (!(ent->spawnflags & DROPPED_ITEM) && (deathmatch->value)){
+		//other->client->resp.holdhog = true;
+		SetRespawn (ent, 20);
+	}
 	return true;
 }
 
@@ -721,7 +752,7 @@ qboolean Pickup_PowerArmor (edict_t *ent, edict_t *other)
 		if (!quantity)
 			ent->item->use (other, ent->item);
 	}
-
+	other->client->resp.hogcount +=1;
 	return true;
 }
 

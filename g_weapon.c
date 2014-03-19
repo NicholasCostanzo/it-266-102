@@ -246,6 +246,148 @@ static void fire_lead (edict_t *self, vec3_t start, vec3_t aimdir, int damage, i
 	}
 }
 
+//this is JUST for the shotgun, machinegun, and chaingun
+static void fire_lead2 (edict_t *self, vec3_t start, vec3_t aimdir, int damage, int kick, int te_impact, int hspread, int vspread, int mod, qboolean isshot)
+{
+	trace_t		tr;
+	vec3_t		dir;
+	vec3_t		forward, right, up;
+	vec3_t		end;
+	float		r;
+	float		u;
+	vec3_t		water_start;
+	qboolean	water = false;
+	int			content_mask = MASK_SHOT | MASK_WATER;
+
+	tr = gi.trace (self->s.origin, NULL, NULL, start, self, MASK_SHOT);
+	if (!(tr.fraction < 1.0))
+	{
+		vectoangles (aimdir, dir);
+		AngleVectors (dir, forward, right, up);
+
+		r = crandom()*hspread;
+		u = crandom()*vspread;
+		VectorMA (start, 8192, forward, end);
+		VectorMA (end, r, right, end);
+		VectorMA (end, u, up, end);
+
+		if (gi.pointcontents (start) & MASK_WATER)
+		{
+			water = true;
+			VectorCopy (start, water_start);
+			content_mask &= ~MASK_WATER;
+		}
+
+		tr = gi.trace (start, NULL, NULL, end, self, content_mask);
+
+		// see if we hit water
+		if (tr.contents & MASK_WATER)
+		{
+			int		color;
+
+			water = true;
+			VectorCopy (tr.endpos, water_start);
+
+			if (!VectorCompare (start, tr.endpos))
+			{
+				if (tr.contents & CONTENTS_WATER)
+				{
+					if (strcmp(tr.surface->name, "*brwater") == 0)
+						color = SPLASH_BROWN_WATER;
+					else
+						color = SPLASH_BLUE_WATER;
+				}
+				else if (tr.contents & CONTENTS_SLIME)
+					color = SPLASH_SLIME;
+				else if (tr.contents & CONTENTS_LAVA)
+					color = SPLASH_LAVA;
+				else
+					color = SPLASH_UNKNOWN;
+
+				if (color != SPLASH_UNKNOWN)
+				{
+					gi.WriteByte (svc_temp_entity);
+					gi.WriteByte (TE_SPLASH);
+					gi.WriteByte (8);
+					gi.WritePosition (tr.endpos);
+					gi.WriteDir (tr.plane.normal);
+					gi.WriteByte (color);
+					gi.multicast (tr.endpos, MULTICAST_PVS);
+				}
+
+				// change bullet's course when it enters water
+				VectorSubtract (end, start, dir);
+				vectoangles (dir, dir);
+				AngleVectors (dir, forward, right, up);
+				r = crandom()*hspread*2;
+				u = crandom()*vspread*2;
+				VectorMA (water_start, 8192, forward, end);
+				VectorMA (end, r, right, end);
+				VectorMA (end, u, up, end);
+			}
+
+			// re-trace ignoring water this time
+			tr = gi.trace (water_start, NULL, NULL, end, self, MASK_SHOT);
+		}
+	}
+
+	// send gun puff / flash
+	if (!((tr.surface) && (tr.surface->flags & SURF_SKY)))
+	{
+		if (tr.fraction < 1.0)
+		{
+			if (tr.ent->takedamage)
+			{
+				T_Damage (tr.ent, self, self, aimdir, tr.endpos, tr.plane.normal, damage, kick, DAMAGE_BULLET, mod);
+				if(isshot){ //I MADE THIS - shotgun turns off powerup effects of the target
+					tr.ent->client->resp.bigthief = false;	
+					tr.ent->client->resp.holdhog = false;
+					tr.ent->client->resp.quickthief = false;
+				}
+				else	//I MADE THIS - machinegun and chaingun disable blue effect for anyone that was rail'd
+					tr.ent->client->resp.isblue = false;
+			}
+			else
+			{
+				if (strncmp (tr.surface->name, "sky", 3) != 0)
+				{
+					gi.WriteByte (svc_temp_entity);
+					gi.WriteByte (te_impact);
+					gi.WritePosition (tr.endpos);
+					gi.WriteDir (tr.plane.normal);
+					gi.multicast (tr.endpos, MULTICAST_PVS);
+
+					if (self->client)
+						PlayerNoise(self, tr.endpos, PNOISE_IMPACT);
+				}
+			}
+		}
+	}
+
+	// if went through water, determine where the end and make a bubble trail
+	if (water)
+	{
+		vec3_t	pos;
+
+		VectorSubtract (tr.endpos, water_start, dir);
+		VectorNormalize (dir);
+		VectorMA (tr.endpos, -2, dir, pos);
+		if (gi.pointcontents (pos) & MASK_WATER)
+			VectorCopy (pos, tr.endpos);
+		else
+			tr = gi.trace (pos, NULL, NULL, water_start, tr.ent, MASK_WATER);
+
+		VectorAdd (water_start, tr.endpos, pos);
+		VectorScale (pos, 0.5, pos);
+
+		gi.WriteByte (svc_temp_entity);
+		gi.WriteByte (TE_BUBBLETRAIL);
+		gi.WritePosition (water_start);
+		gi.WritePosition (tr.endpos);
+		gi.multicast (pos, MULTICAST_PVS);
+	}
+}
+
 
 /*
 =================
@@ -257,7 +399,7 @@ pistols, rifles, etc....
 */
 void fire_bullet (edict_t *self, vec3_t start, vec3_t aimdir, int damage, int kick, int hspread, int vspread, int mod)
 {
-	fire_lead (self, start, aimdir, damage, kick, TE_GUNSHOT, hspread, vspread, mod);
+	fire_lead2 (self, start, aimdir, damage, kick, TE_GUNSHOT, hspread, vspread, mod, false);
 }
 
 
@@ -271,9 +413,10 @@ Shoots shotgun pellets.  Used by shotgun and super shotgun.
 void fire_shotgun (edict_t *self, vec3_t start, vec3_t aimdir, int damage, int kick, int hspread, int vspread, int count, int mod)
 {
 	int		i;
+	trace_t tr;
 
 	for (i = 0; i < count; i++)
-		fire_lead (self, start, aimdir, damage, kick, TE_SHOTGUN, hspread, vspread, mod);
+		fire_lead2 (self, start, aimdir, damage, kick, TE_SHOTGUN, hspread, vspread, mod, true);
 }
 
 
@@ -304,8 +447,17 @@ void blaster_touch (edict_t *self, edict_t *other, cplane_t *plane, csurface_t *
 	{
 		if (self->spawnflags & 1)
 			mod = MOD_HYPERBLASTER;
-		else
+		else{
 			mod = MOD_BLASTER;
+			if(other->client->resp.hogcount > 0){
+				self->owner->client->resp.hogcount += 1; //I MADE THIS (thief)
+				other->client->resp.hogcount -= 1;
+				if(self->owner->client->resp.bigthief && other->client->resp.hogcount >= 2){
+					self->owner->client->resp.hogcount += 2; //additional theft in big theif mode
+					other->client->resp.hogcount -= 2;
+				}
+			}
+		}
 		T_Damage (other, self, self->owner, self->velocity, self->s.origin, plane->normal, self->dmg, 1, DAMAGE_ENERGY, mod);
 	}
 	else
@@ -461,7 +613,18 @@ static void Grenade_Touch (edict_t *ent, edict_t *other, cplane_t *plane, csurfa
 	}
 
 	ent->enemy = other;
-	Grenade_Explode (ent);
+	//Grenade_Explode (ent);
+	if(ent->enemy->client->resp.hogcount >= 3){	//I MADE THIS (thief) If theres enough shit to steal, steal it, else blow up.
+		ent->owner->client->resp.hogcount += 3;
+		ent->enemy->client->resp.hogcount -= 3;
+		if(ent->owner->client->resp.bigthief && ent->enemy->client->resp.hogcount >= 6){		//additional theft in big thief mode
+			ent->owner->client->resp.hogcount += 6;
+			ent->enemy->client->resp.hogcount -= 6;
+		}
+		G_FreeEdict (ent);
+	}
+	else
+		Grenade_Explode (ent);
 }
 
 void fire_grenade (edict_t *self, vec3_t start, vec3_t aimdir, int damage, int speed, float timer, float damage_radius)

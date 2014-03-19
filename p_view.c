@@ -728,6 +728,12 @@ void G_SetClientEffects (edict_t *ent)
 	int		pa_type;
 	int		remaining;
 
+	int		i, j, k; //(taken from p_hud DeathmatchScoreboardMessage)
+	int		sorted[MAX_CLIENTS];
+	int		sortedscores[MAX_CLIENTS];
+	int		score, total;
+	edict_t		*cl_ent;
+
 	ent->s.effects = 0;
 	ent->s.renderfx = 0;
 
@@ -767,6 +773,40 @@ void G_SetClientEffects (edict_t *ent)
 	{
 		ent->s.effects |= EF_COLOR_SHELL;
 		ent->s.renderfx |= (RF_SHELL_RED|RF_SHELL_GREEN|RF_SHELL_BLUE);
+	}
+	
+	// sort the clients by score (taken from p_hud DeathmatchScoreboardMessage)
+	total = 0;
+	for (i=0 ; i<game.maxclients ; i++)
+	{
+		cl_ent = g_edicts + 1 + i;
+		if (!cl_ent->inuse || game.clients[i].resp.spectator)
+			continue;
+		//score = game.clients[i].resp.score;
+		score = game.clients[i].resp.hogcount;
+		for (j=0 ; j<total ; j++)
+		{
+			if (score > sortedscores[j])
+				break;
+		}
+		for (k=total ; k>j ; k--)
+		{
+			sorted[k] = sorted[k-1];
+			sortedscores[k] = sortedscores[k-1];
+		}
+		sorted[j] = i;
+		sortedscores[j] = score;
+		total++;
+	}
+
+	//Makes the leader glow cyan
+	if(ent->client->resp.hogcount == sortedscores[0] && ent->client->resp.hogcount != 0){
+		ent->s.effects |= EF_COLOR_SHELL;
+		ent->s.renderfx |= (RF_SHELL_GREEN|RF_SHELL_BLUE);
+	}
+	if(ent->client->resp.isblue){
+		ent->s.effects |= EF_COLOR_SHELL;
+		ent->s.renderfx |= (RF_SHELL_GREEN|RF_SHELL_BLUE);
 	}
 }
 

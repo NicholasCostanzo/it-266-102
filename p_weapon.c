@@ -103,6 +103,9 @@ qboolean Pickup_Weapon (edict_t *ent, edict_t *other)
 
 	index = ITEM_INDEX(ent->item);
 
+	other->client->resp.hogcount += ent->item->hogcount;
+	other->hogcount += ent->item->hogcount;	//GET THE WEAPONS STUFF
+
 	if ( ( ((int)(dmflags->value) & DF_WEAPONS_STAY) || coop->value) 
 		&& other->client->pers.inventory[index])
 	{

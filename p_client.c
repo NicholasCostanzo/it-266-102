@@ -195,6 +195,16 @@ void ClientObituary (edict_t *self, edict_t *inflictor, edict_t *attacker)
 	char		*message;
 	char		*message2;
 	qboolean	ff;
+	gitem_t		*item;
+	
+	
+	//item = self->client->pers.weapon;
+	//item->hogcount = 20;
+	//Drop_Item(self, self->client->pers.weapon);
+	//SP_item_health(item);
+	//Drop_General(self, FindItem("item_health"));
+	//SpawnItem (self, FindItem ("Health"));
+	//Drop_Item(self, FindItemByClassname ("item_health"));
 
 	if (coop->value && attacker->client)
 		meansOfDeath |= MOD_FRIENDLY_FIRE;
@@ -334,6 +344,7 @@ void ClientObituary (edict_t *self, edict_t *inflictor, edict_t *attacker)
 				message2 = "'s hyperblaster";
 				break;
 			case MOD_RAILGUN:
+				self->client->resp.isblue=true;
 				message = "was railed by";
 				break;
 			case MOD_BFG_LASER:
@@ -394,13 +405,19 @@ void TossClientWeapon (edict_t *self)
 	edict_t		*drop;
 	qboolean	quad;
 	float		spread;
+	int			hog;
+	int i;
+	
+	//hog = self->hogcount;
+	hog = self->client->resp.hogcount;
+	hog = hog/3;
 
 	if (!deathmatch->value)
 		return;
 
 	item = self->client->pers.weapon;
-	if (! self->client->pers.inventory[self->client->ammo_index] )
-		item = NULL;
+	//if (! self->client->pers.inventory[self->client->ammo_index] )
+		//item = NULL;
 	if (item && (strcmp (item->pickup_name, "Blaster") == 0))
 		item = NULL;
 
@@ -417,22 +434,31 @@ void TossClientWeapon (edict_t *self)
 	if (item)
 	{
 		self->client->v_angle[YAW] -= spread;
-		drop = Drop_Item (self, item);
-		self->client->v_angle[YAW] += spread;
-		drop->spawnflags = DROPPED_PLAYER_ITEM;
+		
+		if(!self->client->resp.holdhog){
+			for(i = 0; i < hog/10 && i <= 10; i++){ //drops as many copies of the held weapon as needed to reach the target amount. max is 10.
+				drop = Drop_Item (self, item);
+				drop->item->hogcount = 10;
+				self->client->v_angle[YAW] += spread;
+				drop->spawnflags = DROPPED_PLAYER_ITEM;
+			}
+		}
+		
 	}
-
+	
 	if (quad)
 	{
 		self->client->v_angle[YAW] += spread;
 		drop = Drop_Item (self, FindItemByClassname ("item_quad"));
 		self->client->v_angle[YAW] -= spread;
 		drop->spawnflags |= DROPPED_PLAYER_ITEM;
-
 		drop->touch = Touch_Item;
 		drop->nextthink = level.time + (self->client->quad_framenum - level.framenum) * FRAMETIME;
 		drop->think = G_FreeEdict;
 	}
+
+	if(!self->client->resp.holdhog)
+		self->client->resp.hogcount -= hog;
 }
 
 
@@ -483,6 +509,9 @@ void player_die (edict_t *self, edict_t *inflictor, edict_t *attacker, int damag
 {
 	int		n;
 
+
+	self->client->resp.isblue = false; //don't be blue after death unless killed by railgun (handled in clientobituary)
+
 	VectorClear (self->avelocity);
 
 	self->takedamage = DAMAGE_YES;
@@ -522,6 +551,9 @@ void player_die (edict_t *self, edict_t *inflictor, edict_t *attacker, int damag
 	}
 
 	// remove powerups
+	self->client->resp.holdhog = false;
+	self->client->resp.bigthief = false;
+	self->client->resp.quickthief = false;
 	self->client->quad_framenum = 0;
 	self->client->invincible_framenum = 0;
 	self->client->breather_framenum = 0;
@@ -1564,6 +1596,9 @@ void ClientThink (edict_t *ent, usercmd_t *ucmd)
 	edict_t	*other;
 	int		i, j;
 	pmove_t	pm;
+	char out[80];
+
+	strcpy(out, "");
 
 	level.current_entity = ent;
 	client = ent->client;
@@ -1683,6 +1718,17 @@ void ClientThink (edict_t *ent, usercmd_t *ucmd)
 				continue;
 			other->touch (other, ent, NULL, NULL);
 		}
+		
+		//gi.centerprintf(ent, "", ent->client->fall_time);
+		//gi.cprintf(ent, 100, "", ent->client->fall_time);
+		//gi.cprintf(ent, 1, "test %d", 0);
+		//gi.centerprintf(ent, "count: %d", ent->hogcount);
+			//I MADE THIS (display powerup info and current item count)
+		if(ent->client->resp.bigthief)strcat(out,"(TRIPLE)");
+		if(ent->client->resp.quickthief)strcat(out,"(QUICK)");
+		if(ent->client->resp.holdhog) strcat(out,"(HOLD)");
+		strcat(out, "count: %d");
+		gi.centerprintf(ent, out, ent->client->resp.hogcount);
 
 	}
 
